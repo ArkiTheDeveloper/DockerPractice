@@ -1,0 +1,214 @@
+docker lessons:
+---------------
+
+1. docker container run --publish 80:80 <imagename>
+2. docker container run --publish 80:80 --detach <imagename> : Detach will make the docker run in the background!
+3. docker container ls : Lists the running containers
+4. docker container ls -a : Lists all the containers that ever ran
+5. docker container run --publish 80:80 --name <nameOfTheContainer> : Gives the name of the container.
+6. docker container logs <nameOfTheContainer> : lists the last few logs, there are still options for this.
+7. docker container rm <processId's> : Removes the containers from the whole list of -a
+
+Inspecting a container:
+----------------------
+
+1. docker container top <container name> = gives the processes running in a given container
+2. docker container inspect = gives the configuration of the container
+3. docker container stats = performance stats of the container
+
+Networking of a docker:
+-----------------------
+
+A container connects to the VPN of the docker - "Bridge"
+
+Every network routes through a daemon firewall - "NAT" - which interfaces the docker ports to the outside machines' ports.
+
+docker doesn't rely on IP Addresses for DNS resolution, but rather relies on CONTAINER NAMES for container DNS resolutions.
+
+The default BRIDGE network doesn't have the DNS server inbuilt to automatically resolve the DNS names of the containers on the same network, but can be done using the link option to link different containers running on the deafult Bridge network.
+
+Another solution can be is to run the container on a separate user created network, which comes with an inbuilt DNS resolution!
+
+
+Make the front and backend sit on the same network, such that we don't unnecessarily expose ports to the outside world. And, we can expose some ports manually using -P option!
+
+1. docker container port <containerName> : lists all the ports of that container
+2. docker network ls : shows all the networks
+3. docker network inspect
+4. docker network create networkName : creates an external network driver - third party mainly
+5. docker network connect : Attach a network to container
+6. docker network disconnect : Disconnects a network from the container
+
+
+We can add --net-alias search when creating the container such that containers with the same name can have their DNS resolved on a network. For this, we need to create a custom network.
+
+The new aliases created with the same name will respond to the alpine nslookup serach with --net networkname.
+
+
+
+Images:
+-------
+
+App binaries and the required dependencies along with the metadata on running the application.
+
+An image is composed of different other images as layers.
+
+Layers can be reused from cache, instead of downloading everytime.
+
+Copy on write -- A methodology used by containers.
+	If there are more than a single container that uses the same image, then it is a read only image. Also, it is the same image used by all the containers.
+	But, if there is another container - "Container 3" - which is trying to change the underlying image, then this is called as copy on write, where the docker brings the "CHANGED FILES OF THE IMAGE" into the container and maintains a diff of what is changed, and that is the only time a copy of that image is created.
+
+Latest is the default tag in the docker - or latest stable version!
+
+Image tags - 
+------------
+
+1. docker image ls
+2. docker history <image name> -- Old way -- gives the "commit history" akin data traces
+3. docker image inspect <image name> -- gives the metadata of the image
+4. docker image tag <name of the image> <new tag>: tags an image!
+5. docker image push <image name> : it pushes the created the images to the docker hub.
+		requires login using docker login!
+
+
+
+Docker File:
+-------------
+
+1. docker image build -f some-dockerfile : Allows the user to access the docker file for a new image.
+
+	TAGS:
+	-----
+	1. FROM: (Required) All images must have a from tag which specifies the distribution. "debian", "alpine", (scratch if new) etc
+	2. ENV : Sets all the environment variables, very important since, we set key/values for os config. 
+	3. RUN : Executes all the shell commands. 
+		Installing and unzipping packages, something of that sort. Importing of certificates, etc can also be a part of the run command.
+		Appending different commands using "&&" correspond to the run functions of each layer.
+	4. EXPOSE : Exposes some ports to the outside world - which inturn can use these ports along with -p tag to direct the 
+		hosts' port to the exposed port.
+	5. CMD: (Required) Final command to run when we start or restart a container.		
+
+Docker handles all the logs for our container. Just log to stddout and stderr, then docker takes care of logging things to a file!
+
+	If the Dockerfile is in the same directory, then we can just do
+	docker image build -t custom_tag .
+	Then, it creates an image out of the dockerFile which is existing in the same directory and creates a tag with the name custom_tag.
+
+	Once built the docker starts reading the unchanged stuff from the cache iteslf.
+
+	It is better not to change the line numbers that much!
+
+
+Docker compose:
+---------------
+
+	Allows for multipe containers to be run at the same time using yml!
+
+	Also allows to build a new image.
+
+	Docker compose has its own version!
+
+	v1.13 =< 
+
+	Any file name is possible, but default is docker-compose.yml
+
+
+	Structure:
+	----------
+
+		version: '3.1' 
+
+		services: # containers, same as docker run
+
+			*servicename: #a friendly name, this is also DNS name inside network
+			
+			*build: 
+
+				* context: .
+
+				* dockerfile: /path/to/dockerfile
+
+			*image: #optional, if you use build. (custom image name)
+			
+			*command: # optional, replace the default CMD specified by the image
+			
+			*environment: #Optional same as -e in docker run
+			
+			*volumes: # optional same as -v in docker run
+
+			* depends_on:
+				- service_name	
+
+			*Servicename2: new container
+
+		volumes: #Optional, same as docker volume create
+
+		networks: #Optional, same as docker network create
+
+
+	Running Docker Compose:
+	-----------------------
+
+		using docker-compose CLI - comes inbuilt with docker for Mac and windows.
+
+		1. docker-compose up: setupvolumes/networks and start all containers.
+		2. docker-compose down: stop all containers and remove containers/volumes and networks.
+		3. docker-compose build: Builds the images if required to build
+			- docker-compose up will build the image for the first time, but from the next time onwards, if we want to build the custom image again, we need to use this docker-compose build command!
+		4. docker-compose down -v : will remove the persistent volume as well.
+		5. docker-compose down --rmi local:  Will remove the custom images that are built locally.
+
+	Example:
+	--------
+
+		Using docker file to create drupal
+
+		FROM drupal:8.2
+
+		RUN apt-get update && apt-get install -y (-y is automatic yes for installation) \
+			&& rm -rf /var/lib/apt/lists/* (removes all the cache that apt-get has.)
+
+
+Persistent Data:
+----------------
+
+	1. Containers have immutable and ephemeral data
+	2. Only redeploying and no changing
+	3. Docker gives us features like "separation of concerns" by allowing us to use volumes for persistent data
+	4. Data volumes and bind mounts are two solutions
+	5. Volumes: Almost like external HDD for the docker container. 
+	6. Bind Mounts: A host's file path injected into the container.
+
+
+	* docker volume ls
+	* docker container run --name xxxx -v volumename:/path/to/volume <container image> : runs the container and uses the volume that is specified over there. If the volume is already created, it uses the same or else it creates a new one.
+	* docker volume --create : creates a volume with a new driver.
+
+	Data Volumes:
+	-------------
+	We specify the location of the volumes in the Dockerfile using
+	VOLUME in the structure
+	ex: VOLUME /var/lib/mysql
+	Requires the manual deletion, and hence is persistent. They outlive the container.
+
+	Named volumes
+	-------------
+	 - Allows us to name the volume that we're creating for a container image. Makes it easier to inspect and use.
+
+	Bind Mounting:
+	--------------
+	 - Mapping of a host file/directory to a container's file/directory
+	 - Can't specify in docker file, need to specify while running docker run ....
+	 - Bind mounting starts with a '/'. 
+
+	 * docker run -v <path on host machine> : <path on image> <container image>
+	 * docker run -v /Users/.... : /path/container <container image>
+	 * docker run -v //c/... : /path/container <container image>
+	 * docker run -d -p 80:80 --name nginx -v $(pwd):/usr/share/nginx/html nginx
+
+	 Have a index.html in the pwd, and if you do localhost:80, we will be seeing our own index.html
+
+MongoDB:
+--------
+https://stackoverflow.com/questions/34559557/how-to-enable-authentication-on-mongodb-through-docker
