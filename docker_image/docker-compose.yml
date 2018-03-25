@@ -1,0 +1,24 @@
+version: '2'
+
+services:
+    drupal_image:
+      image: drupal
+      ports:
+        - 80:80
+      volumes:
+        - drupal-modules:/var/www/html/modules
+        - drupal-themes:/var/www/html/themes
+        - drupal-profiles:/var/www/html/profiles
+    postgres_db:
+      image: postgres
+      environment:
+        POSTGRES_PASSWORD: example
+      volumes:
+        - dbdata:/var/lib/postgresql/data
+
+volumes:
+    dbdata:
+    drupal-modules:
+    drupal-profiles:
+    drupal-themes:
+      

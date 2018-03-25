@@ -1,0 +1,7 @@
+FROM debian:jessie
+
+RUN echo 'Working!'
+
+EXPOSE 80
+
+CMD
